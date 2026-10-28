@@ -306,6 +306,7 @@ class NoteStore {
       return { data: emptyStore(), migrated: false };
     }
 
+    let decryptionFailed = false;
     if (this.codec) {
       try {
         const plain = this.codec.decrypt(raw);
@@ -317,6 +318,7 @@ class NoteStore {
           return { data: this._parseAndMigrate(parsed, raw), migrated: false };
         }
       } catch (_) {
+        decryptionFailed = true;
         // Fall through to plaintext for files saved before encryption.
       }
     }
@@ -325,6 +327,12 @@ class NoteStore {
     try {
       parsed = JSON.parse(raw.toString("utf8"));
     } catch (_) {
+      // A locked/unavailable keychain is not a corrupted notes file.
+      if (decryptionFailed || /^v1[01]/.test(raw.subarray(0, 3).toString())) {
+        throw new Error(
+          "Saved notes could not be decrypted. Unlock the desktop keychain and restart Ghost Notes. The original notes file has not been changed.",
+        );
+      }
       return { data: this._corrupt(raw), migrated: false };
     }
     return { data: this._parseAndMigrate(parsed, raw), migrated: !!this.codec };
@@ -352,14 +360,12 @@ class NoteStore {
   }
 
   _writeNow() {
-    let out;
-    if (this.codec) {
-      out = this.codec.encrypt(JSON.stringify(this.data));
-    } else {
-      out = Buffer.from(JSON.stringify(this.data, null, 2), "utf8");
-    }
     try {
-      fs.writeFileSync(this.tmpPath, out);
+      const out = this.codec
+        ? this.codec.encrypt(JSON.stringify(this.data))
+        : Buffer.from(JSON.stringify(this.data, null, 2), "utf8");
+      fs.writeFileSync(this.tmpPath, out, { mode: 0o600 });
+      fs.chmodSync(this.tmpPath, 0o600);
       fs.renameSync(this.tmpPath, this.filePath);
     } catch (e) {
       console.error("Failed to save notes:", e);

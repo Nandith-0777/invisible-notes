@@ -8,20 +8,22 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "prepare": "husky",
-    "start": "electron .",
+    "start": "node scripts/start.js",
     "dist": "electron-builder",
     "dist:mac": "electron-builder --mac",
-    "dist:win": "electron-builder --win"
+    "dist:win": "electron-builder --win",
+    "dist:linux": "electron-builder --linux",
+    "setup:linux": "node scripts/setup-linux.js"
   },
   "author": "Navya Bijoy",
   "license": "MIT",
-  "homepage": "https://github.com/navyabijoy/invisible-notes",
+  "homepage": "https://github.com/Nandith-0777/invisible-notes",
   "repository": {
     "type": "git",
-    "url": "https://github.com/navyabijoy/invisible-notes.git"
+    "url": "https://github.com/Nandith-0777/invisible-notes.git"
   },
   "bugs": {
-    "url": "https://github.com/navyabijoy/invisible-notes/issues"
+    "url": "https://github.com/Nandith-0777/invisible-notes/issues"
   },
   "keywords": [
     "sticky-notes",
@@ -33,7 +35,7 @@
     "overlay"
   ],
   "devDependencies": {
-    "electron": "^33.0.0",
+    "electron": "43.6.0",
     "electron-builder": "^25.0.0",
     "husky": "^9.1.7",
     "lint-staged": "^17.5.0",
@@ -60,7 +62,8 @@
       "note/**",
       "manager/**",
       "build/tray-icon.png",
-      "build/tray-icon@2x.png"
+      "build/tray-icon@2x.png",
+      "integrations/**"
     ],
     "mac": {
       "category": "public.app-category.productivity",
@@ -90,6 +93,29 @@
       {
         "provider": "github"
       }
-    ]
+    ],
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb",
+        "tar.gz"
+      ],
+      "category": "Office",
+      "icon": "build/icon.png",
+      "executableName": "com.invisiblenotes.app",
+      "desktop": {
+        "StartupWMClass": "com.invisiblenotes.app",
+        "Comment": "Local sticky notes with desktop-dependent capture protection"
+      },
+      "executableArgs": [
+        "--ozone-platform=x11",
+        "--class=com.invisiblenotes.app"
+      ],
+      "maintainer": "Nandith-0777 <184540937+Nandith-0777@users.noreply.github.com>"
+    }
+  },
+  "desktopName": "com.invisiblenotes.app.desktop",
+  "engines": {
+    "node": ">=22.12.0"
   }
 }

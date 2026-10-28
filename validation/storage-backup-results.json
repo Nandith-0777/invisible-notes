@@ -1,0 +1,14 @@
+{
+  "packagedAppLaunch": true,
+  "sameRecordsAfterRestart": true,
+  "encryptedStorage": {
+    "encrypted": true,
+    "backend": "gnome_libsecret"
+  },
+  "plaintextMarkerAbsent": true,
+  "storeHeader": "v11",
+  "ownerOnlyPermissions": "0o600",
+  "exportCount": 4,
+  "mergeImportAdded": 1,
+  "dialogMethod": "native dialog choices stubbed in isolated main-process inspector; UI not verified"
+}

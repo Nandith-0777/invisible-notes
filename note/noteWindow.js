@@ -27,6 +27,7 @@ function createNoteWindow(record, { onMoved, onResized, onClosed } = {}) {
   });
 
   const win = new BrowserWindow({
+    ...platform.noteWindowOptions(),
     width: bounds.width,
     height: bounds.height,
     x: bounds.x,
@@ -47,6 +48,9 @@ function createNoteWindow(record, { onMoved, onResized, onClosed } = {}) {
     },
   });
 
+  if (platform.isLinux) {
+    win.on("page-title-updated", (event) => event.preventDefault());
+  }
   platform.setPinned(win, record.pinned !== false);
 
   if (platform.isWindows) {

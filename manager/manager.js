@@ -13,6 +13,8 @@ const {
   normalizeImport,
 } = require("../store");
 
+const platform = require("../platform");
+
 const MAX_TITLE_LENGTH = 80;
 
 function sanitizeTitle(input) {
@@ -28,6 +30,7 @@ function createManagerModule({ store, actions, theme }) {
 
   function snapshot() {
     return {
+      runtime: platform.runtimeStatus(),
       notes: store.all(),
       workspaces: store.workspaces(),
       activeWorkspace: store.activeWorkspaceId(),

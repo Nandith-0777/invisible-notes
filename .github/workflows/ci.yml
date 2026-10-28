@@ -12,8 +12,8 @@ jobs:
     name: Node ${{ matrix.node-version }} / ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest]
-        node-version: [20, 22]
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node-version: [22, 24]
       fail-fast: false
     runs-on: ${{ matrix.os }}
     steps:
@@ -27,7 +27,7 @@ jobs:
       - run: npm ci
 
       - name: Check formatting
-        if: matrix.os == 'ubuntu-latest' && matrix.node-version == 20
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == 22
         run: npm run format:check
 
       - name: Run tests

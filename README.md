@@ -13,18 +13,22 @@
   <a href="https://github.com/navyabijoy/invisible-notes/releases"><img src="https://img.shields.io/github/v/release/navyabijoy/invisible-notes" alt="Latest release" /></a>
   <a href="https://github.com/navyabijoy/invisible-notes/actions/workflows/ci.yml"><img src="https://github.com/navyabijoy/invisible-notes/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="License" /></a>
-  <a href="https://www.electronjs.org/"><img src="https://img.shields.io/badge/Electron-33-blue?logo=electron&logoColor=white" alt="Electron" /></a>
+  <a href="https://www.electronjs.org/"><img src="https://img.shields.io/badge/Electron-43-blue?logo=electron&logoColor=white" alt="Electron" /></a>
   <a href="https://ghostnotes.navyabijoy.tech"><img src="https://img.shields.io/badge/website-ghostnotes.navyabijoy.tech-8a63d2" alt="Website" /></a>
 </p>
 
 Works with **Zoom, Google Meet, Microsoft Teams, QuickTime, OBS** and native screen recording on **macOS** and **Windows**.
+
+**Linux support in this fork:** see [LINUX.md](LINUX.md) for installation,
+Hyprland integration, keychain setup, packaging and verified limits. Ordinary
+notes work through X11/XWayland; capture masking is compositor-specific and
+**does not protect against direct GPU/KMS recording**.
 
 Demoing a take-home assignment? Giving a code walkthrough while sharing your screen? Keep your talking points on-screen with natural eye contact — nobody watching the call or the recording ever sees them.
 
 **Private. Local. Lightweight.** No account, no cloud, no telemetry on note content. Your notes never leave your computer.
 
 <img width="906" height="667" alt="image" src="https://github.com/user-attachments/assets/c920a333-6d6c-46cd-a14a-700a05310e87" />
-
 
 <p align="center"><sub>The Notes Manager — every note you've ever written, searchable, with workspaces, backup and shortcuts.</sub></p>
 
@@ -107,18 +111,18 @@ Content protection is applied before a note is first shown and re-applied after 
 
 Hover a note to reveal its top bar:
 
-| Control             | What it does                                                                                                          |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| ⠿ (drag handle)     | Drag to move the note. Drag any edge or corner to resize.                                                             |
-| Color dot           | Opens the palette — pick the note's color.                                                                            |
-| Opacity slider      | Fades the note from 30% to 100%.                                                                                      |
-| **Aa** (Formatting) | Bold / italic / underline / strikethrough, headings, quote, bullet/numbered/check lists, text colors, `{}` monospace. |
-| `A−` / `A+`         | Smaller / larger text.                                                                                                |
-| 📌 Pin              | **Pinned (default):** always on top, even when you switch apps. **Unpinned:** behaves like a normal window.           |
-| 👻 Ghost            | Click-through mode — clicks pass to whatever is behind the note. Hover the bar to interact again.                     |
-| ＋                  | Creates a new note.                                                                                                   |
+| Control             | What it does                                                                                                                                             |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ⠿ (drag handle)     | Drag to move the note. Drag any edge or corner to resize.                                                                                                |
+| Color dot           | Opens the palette — pick the note's color.                                                                                                               |
+| Opacity slider      | Fades the note from 30% to 100%.                                                                                                                         |
+| **Aa** (Formatting) | Bold / italic / underline / strikethrough, headings, quote, bullet/numbered/check lists, text colors, `{}` monospace.                                    |
+| `A−` / `A+`         | Smaller / larger text.                                                                                                                                   |
+| 📌 Pin              | **Pinned (default):** always on top, even when you switch apps. **Unpinned:** behaves like a normal window.                                              |
+| 👻 Ghost            | Click-through mode — clicks pass to whatever is behind the note. Hover the bar to interact again.                                                        |
+| ＋                  | Creates a new note.                                                                                                                                      |
 | −                   | **Collapse** — shrinks the note into a small floating bubble. The bubble stays screen-capture-excluded and draggable. Click it to restore the full note. |
-| ✕                   | **Hides** the note — it does _not_ delete it. It stays in the Notes Manager and can be reopened any time.             |
+| ✕                   | **Hides** the note — it does _not_ delete it. It stays in the Notes Manager and can be reopened any time.                                                |
 
 Permanently deleting a note is only possible from the **Notes Manager** (with a confirmation prompt).
 
@@ -241,7 +245,7 @@ The note is collapsed into a floating bubble. Click the dot once to restore it t
 
 ## Development
 
-**Requirements:** Node.js 20+ and npm.
+**Requirements:** Node.js 22.12+ and npm.
 
 ```bash
 npm install       # install dependencies
@@ -251,7 +255,7 @@ npm run format    # Prettier, write
 npm run format:check  # Prettier, verify (CI runs this)
 ```
 
-CI (`.github/workflows/ci.yml`) runs formatting checks and tests on Ubuntu and Windows across Node 20 and 22.
+CI (`.github/workflows/ci.yml`) runs formatting checks and tests on Ubuntu, Windows and macOS across Node 22 and 24.
 
 **Architecture** (full details in [AGENTS.md](AGENTS.md)):
 
@@ -273,9 +277,10 @@ There is **no bundler and no TypeScript** — plain Node.js + Electron with Comm
 ```bash
 npm run dist:mac    # macOS .dmg / .zip (universal)
 npm run dist:win    # Windows installer (.exe via NSIS)
+npm run dist:linux  # Linux AppImage / .deb / .tar.gz
 ```
 
-Pushing a `v*` tag triggers the release workflow (`.github/workflows/release.yml`), which builds both platforms and attaches them to a GitHub Release. See [RELEASE.md](RELEASE.md) for signing/notarization setup and the full release checklist.
+Pushing a `v*` tag triggers the release workflow (`.github/workflows/release.yml`), which builds macOS, Windows and Linux artifacts and attaches them to a GitHub Release. See [RELEASE.md](RELEASE.md) for signing/notarization setup and the full release checklist.
 
 ## Contributing
 

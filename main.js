@@ -16,6 +16,7 @@ const fs = require("fs");
 const { NoteStore, ALL_NOTES_SCOPE } = require("./store");
 const { DEFAULT_NOTE_WIDTH, DEFAULT_NOTE_HEIGHT } = require("./note/noteSize");
 const platform = require("./platform");
+platform.configureApp(app);
 const {
   createNoteWindow,
   applyContentProtection,
@@ -31,6 +32,8 @@ const {
 const { createNoteCollapseController } = require("./note/noteCollapse");
 const { createManagerModule } = require("./manager/manager");
 
+ipcMain.handle("app:runtime", () => platform.runtimeStatus());
+
 // User-facing save errors; stack traces stay in the console.
 let writeErrorShown = false;
 
@@ -41,12 +44,8 @@ let noteCollapse = null;
 
 // OS-backed encryption for notes.json, or plaintext if the platform cannot encrypt.
 function createStoreCodec() {
-  if (safeStorage && safeStorage.isEncryptionAvailable()) {
-    return {
-      encrypt: (plain) => safeStorage.encryptString(plain),
-      decrypt: (cipher) => safeStorage.decryptString(cipher),
-    };
-  }
+  const codec = platform.createStorageCodec(safeStorage);
+  if (codec) return codec;
   console.warn(
     "OS-level storage encryption (safeStorage) is unavailable on this system; " +
       "notes will be stored in plaintext.",
@@ -665,7 +664,12 @@ function updateTrayMenu() {
       click: () => manager.openManagerWindow({ showShortcuts: true }),
     },
     { type: "separator" },
-    { label: "Notes are invisible to screen sharing ✓", enabled: false },
+    {
+      label: platform.isLinux
+        ? "Capture protection: check desktop status"
+        : "OS screen-capture protection requested",
+      enabled: false,
+    },
     ...(caveat ? [{ label: caveat, enabled: false }] : []),
     { type: "separator" },
     {
@@ -675,7 +679,7 @@ function updateTrayMenu() {
           type: "info",
           title: "About Ghost Notes",
           message: "Ghost Notes",
-          detail: `Version ${app.getVersion()}\nPrivate, local sticky notes invisible to screen sharing.`,
+          detail: `Version ${app.getVersion()}\nPrivate, local sticky notes.\n${platform.captureExclusionCaveat() || "OS screen-capture protection requested."}`,
         });
       },
     },
@@ -701,14 +705,25 @@ const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
   app.quit();
 } else {
-  app.on("second-instance", () => {
-    if (tray) tray.popUpContextMenu();
+  app.on("second-instance", (event, argv) => {
+    app.whenReady().then(() => {
+      if (!store || !manager) return;
+      if (argv.includes("--new-note")) createNoteNearCursor();
+      else manager.openManagerWindow();
+    });
   });
 
   app.whenReady().then(() => {
     platform.hideDockIconIfMac(app);
+    platform.installDesktopIntegration();
 
-    store = createStore();
+    try {
+      store = createStore();
+    } catch (error) {
+      dialog.showErrorBox("Could not unlock notes", error.message);
+      app.quit();
+      return;
+    }
     applyOverrides(store.getShortcutOverrides());
     manager = createManager();
     noteCollapse = createNoteCollapseController({
@@ -726,6 +741,14 @@ if (!gotLock) {
       if (manager) manager.notifyChanged();
     });
 
+    if (platform.isLinux && typeof globalShortcut.on === "function") {
+      globalShortcut.on("registration-resolved", (accelerator, bound) => {
+        const requested = getShortcuts().find((s) => s.scope === "global");
+        if (requested?.accelerator !== accelerator) return;
+        platform.setShortcutStatus(bound ? "registered" : "denied");
+        manager.notifyChanged();
+      });
+    }
     setupTray();
     registerFallbackShortcut(globalShortcut, () => createNoteNearCursor());
 
@@ -733,6 +756,7 @@ if (!gotLock) {
       createNoteNearCursor();
     } else {
       applyActiveWorkspace();
+      if (process.argv.includes("--new-note")) createNoteNearCursor();
     }
 
     screen.on("display-added", reconcileOpenWindowsAfterSystemChange);
@@ -744,7 +768,7 @@ if (!gotLock) {
   });
 
   app.on("before-quit", () => {
-    store.flush();
+    store?.flush();
   });
 
   app.on("will-quit", () => {

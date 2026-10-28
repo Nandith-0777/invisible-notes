@@ -1,6 +1,6 @@
 name: Build & Release
 
-# Builds macOS (universal) and Windows installers and attaches them to a
+# Builds macOS (universal), Windows and Linux artifacts and attaches them to a
 # GitHub Release whenever you push a version tag like v1.0.0.
 on:
   push:
@@ -15,7 +15,7 @@ jobs:
   release:
     strategy:
       matrix:
-        os: [macos-latest, windows-latest]
+        os: [macos-latest, windows-latest, ubuntu-latest]
       fail-fast: false
     runs-on: ${{ matrix.os }}
     steps:
@@ -23,7 +23,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - run: npm ci
@@ -56,3 +56,9 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+
+      - name: Build & publish (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: npm run dist:linux -- --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

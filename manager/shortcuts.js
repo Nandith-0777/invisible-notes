@@ -50,6 +50,7 @@ const GLOBAL_SHORTCUT = SHORTCUTS.find(
 const FALLBACK_BINDING = GLOBAL_SHORTCUT.accelerator;
 
 let activeOverrides = {};
+let registeredFallbackBinding = null;
 
 function resolveShortcuts(overrides = activeOverrides) {
   return SHORTCUTS.map((shortcut) => {
@@ -128,10 +129,29 @@ function registerShortcuts(win, actions) {
 function registerFallbackShortcut(globalShortcut, handler, customBinding) {
   const binding =
     customBinding || activeOverrides[GLOBAL_SHORTCUT.id] || FALLBACK_BINDING;
-  const registered = globalShortcut.register(binding, handler);
+  if (registeredFallbackBinding && registeredFallbackBinding !== binding) {
+    globalShortcut.unregister(registeredFallbackBinding);
+    platform.unregisterCompositorShortcut();
+    registeredFallbackBinding = null;
+  }
+  const compositorRegistered = platform.registerCompositorShortcut(binding);
+  const registered =
+    compositorRegistered ||
+    (!platform.hasShortcutConflict() &&
+      globalShortcut.register(binding, handler));
+  if (registered) registeredFallbackBinding = binding;
+  platform.setShortcutStatus(
+    compositorRegistered
+      ? "registered-via-compositor"
+      : registered
+        ? platform.runtimeStatus().backend === "wayland"
+          ? "pending"
+          : "registered"
+        : "unavailable",
+  );
   if (!registered) {
     console.warn(
-      `Fallback shortcut ${binding} could not be registered — likely in use by another app.`,
+      `Fallback shortcut ${binding} could not be registered. It may be in use, or the desktop shortcut portal may be unavailable.`,
     );
   }
   return registered;
@@ -139,8 +159,10 @@ function registerFallbackShortcut(globalShortcut, handler, customBinding) {
 
 function unregisterFallbackShortcut(globalShortcut, customBinding) {
   const binding =
-    customBinding || activeOverrides[GLOBAL_SHORTCUT.id] || FALLBACK_BINDING;
+    customBinding || registeredFallbackBinding || FALLBACK_BINDING;
   globalShortcut.unregister(binding);
+  platform.unregisterCompositorShortcut();
+  registeredFallbackBinding = null;
 }
 
 module.exports = {

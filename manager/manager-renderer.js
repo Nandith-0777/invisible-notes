@@ -1,3 +1,4 @@
+let runtimeInfo = null;
 const ALL_SCOPE = "__all__";
 
 const COLOR_TINTS = {
@@ -479,6 +480,7 @@ function applyAppearance() {
 }
 
 function applySnapshot(snapshot) {
+  runtimeInfo = snapshot.runtime || null;
   notes = snapshot.notes || [];
   workspaces = snapshot.workspaces || [];
   activeWorkspace = snapshot.activeWorkspace || null;
@@ -1067,6 +1069,12 @@ function renderSettingsBody() {
   }
 
   if (settingsPane === "storage") {
+    const storage = document.createElement("p");
+    storage.className = "field-note";
+    storage.textContent = runtimeInfo?.storage?.encrypted
+      ? `Notes encrypted with ${runtimeInfo.storage.backend}.`
+      : "Notes are not encrypted at rest. Unlock or configure your desktop keychain and restart Ghost Notes to enable encryption.";
+    settingsBodyEl.appendChild(storage);
     const note = document.createElement("p");
     note.className = "field-note";
     note.textContent =
@@ -1096,7 +1104,10 @@ function renderSettingsBody() {
     : "Ghost Notes";
   const title = document.createElement("div");
   title.className = "about-title";
-  title.textContent = "Sticky notes that stay off the recording.";
+  title.textContent =
+    runtimeInfo?.platform === "linux"
+      ? "Local notes with desktop-aware capture status."
+      : "Private sticky notes.";
   const note = document.createElement("p");
   note.className = "field-note";
   note.textContent =
@@ -1104,6 +1115,18 @@ function renderSettingsBody() {
   settingsBodyEl.appendChild(kicker);
   settingsBodyEl.appendChild(title);
   settingsBodyEl.appendChild(note);
+  if (runtimeInfo) {
+    const status = document.createElement("p");
+    status.className = "field-note";
+    status.textContent = [
+      runtimeInfo.capture.message || "OS content protection requested.",
+      `Global shortcut: ${runtimeInfo.globalShortcut}.`,
+      runtimeInfo.backend ? `Display backend: ${runtimeInfo.backend}.` : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
+    settingsBodyEl.appendChild(status);
+  }
 }
 
 function openSettings(pane) {

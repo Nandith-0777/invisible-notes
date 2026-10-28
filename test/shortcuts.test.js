@@ -217,3 +217,26 @@ test("applyOverrides updates shortcut matcher tables dynamically", () => {
     assert.equal(shortcutNameForInput(shortcutInput("Q")), null);
   }
 });
+
+test("changing a global shortcut releases the previous accelerator", () => {
+  const registered = new Set();
+  const shortcutAPI = {
+    register: (binding) => {
+      registered.add(binding);
+      return true;
+    },
+    unregister: (binding) => registered.delete(binding),
+  };
+  const shortcuts = require("../manager/shortcuts");
+  try {
+    shortcuts.registerFallbackShortcut(shortcutAPI, () => {});
+    shortcuts.applyOverrides({ newNoteAnywhere: "Ctrl+Alt+Shift+J" });
+    shortcuts.unregisterFallbackShortcut(shortcutAPI);
+    shortcuts.registerFallbackShortcut(shortcutAPI, () => {});
+    assert.equal(registered.has(shortcuts.FALLBACK_BINDING), false);
+    assert.equal(registered.has("Ctrl+Alt+Shift+J"), true);
+  } finally {
+    shortcuts.unregisterFallbackShortcut(shortcutAPI);
+    shortcuts.applyOverrides({});
+  }
+});

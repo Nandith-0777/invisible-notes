@@ -1,0 +1,6 @@
+{
+  "maskedCenterBlackFraction": 1.0,
+  "maskedDiffersFromUnmasked": true,
+  "backend": "grim compositor screencopy",
+  "interpretation": "black-rectangle masking works"
+}

@@ -1,0 +1,7 @@
+{
+  "method": "Wayland virtual keyboard protocol; compositor processed Ctrl+Alt+Shift+N",
+  "focus": "Wayland agent window",
+  "before": 0,
+  "after": 1,
+  "createdExactlyOne": true
+}
