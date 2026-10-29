@@ -40,7 +40,7 @@ of disposable test notes; no user notes database or full-desktop capture is incl
 
 ## Automated checks
 
-The Node test run contains 99 tests: 92 passed, 7 platform-specific skips,
+The Node test run contains 101 tests: 94 passed, 7 platform-specific skips,
 0 failures. The additional tests cover Linux launch flags, explicit option
 preservation, keychain selection, rejecting `basic_text`, encrypted-file
 preservation, encryption errors, installer idempotence and shortcut replacement.
@@ -55,8 +55,9 @@ Windows and macOS GUI behavior was not exercised locally.
 - Native Wayland mode, non-Hyprland desktops, older Hyprland versions, multiple
   monitors, physical click-through recovery, fullscreen stacking and individual
   meeting apps require separate testing.
-- The runtime compositor shortcut must be restored by restarting Ghost Notes
-  after a Hyprland configuration reload. Persisted window rules survive reloads.
+- The runtime compositor shortcut automatically reconnects after a Hyprland
+  configuration reload; a live reload retained exactly one owned binding and
+  produced no configuration errors. Persisted window rules survive reloads.
 - If the desktop keychain is absent or locked, encryption cannot be silently
   promised; unreadable encrypted stores stop startup without modification.
 

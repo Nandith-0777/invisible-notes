@@ -83,8 +83,10 @@ confirmed. If a key is unavailable, use the tray or app-menu action:
 ghost-notes --new-note
 ```
 
-After a Hyprland configuration reload, restart Ghost Notes to restore its
-runtime shortcut binding. The persisted window rules continue to apply.
+Ghost Notes watches Hyprland configuration reloads and reconnects its runtime
+shortcut automatically. Registrations belong to the launching app/profile, so
+an isolated test profile cannot claim or remove another profile's shortcut.
+The persisted window rules continue to apply.
 
 ## Storage
 

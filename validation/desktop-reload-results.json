@@ -1,0 +1,16 @@
+{
+  "desktop": "Hyprland 0.56.2, XWayland",
+  "method": "Live isolated Electron instances, hyprctl reload, compositor binding inspection and renderer runtime IPC",
+  "reload": {
+    "bindingsBefore": 1,
+    "bindingsAfter": 1,
+    "sameOwner": true,
+    "configurationErrors": [],
+    "runtimeShortcut": "registered-via-compositor"
+  },
+  "secondProfile": {
+    "runtimeShortcut": "unavailable",
+    "firstProfileBindingPreserved": true,
+    "firstProfileBindingPreservedAfterSecondClosed": true
+  }
+}

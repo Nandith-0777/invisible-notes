@@ -4,6 +4,8 @@ const isLinux = process.platform === "linux";
 const { execFileSync } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
+const net = require("node:net");
+const { createHash } = require("node:crypto");
 
 const DESKTOP_ID = "com.invisiblenotes.app.desktop";
 const NOTE_TITLE = "Ghost Notes Note";
@@ -14,6 +16,7 @@ let shortcutStatus = "not-registered";
 let desktopCommand = null;
 let compositorBinding = null;
 let shortcutConflict = false;
+let shortcutOwner = null;
 
 function configureApp(app, env = process.env) {
   if (env.GHOST_NOTES_DATA_DIR) {
@@ -40,6 +43,10 @@ function configureApp(app, env = process.env) {
         quote(env.GHOST_NOTES_DATA_DIR) +
         " " +
         desktopCommand;
+    shortcutOwner = createHash("sha256")
+      .update(desktopCommand)
+      .digest("hex")
+      .slice(0, 12);
   }
   // Native Wayland forbids the positioning and sizing bubble mode needs.
   if (!app.commandLine.hasSwitch("ozone-platform") && env.DISPLAY) {
@@ -109,6 +116,66 @@ function installDesktopIntegration() {
   return compositorMask;
 }
 
+function watchDesktopChanges(onReload, env = process.env) {
+  if (!isLinux || !env.HYPRLAND_INSTANCE_SIGNATURE || !env.XDG_RUNTIME_DIR)
+    return () => {};
+  const socketPath = path.join(
+    env.XDG_RUNTIME_DIR,
+    "hypr",
+    env.HYPRLAND_INSTANCE_SIGNATURE,
+    ".socket2.sock",
+  );
+  let socket;
+  let reconnect;
+  let refresh;
+  let stopped = false;
+  let connectedOnce = false;
+  function scheduleRefresh() {
+    clearTimeout(refresh);
+    refresh = setTimeout(() => {
+      if (stopped) return;
+      try {
+        onReload();
+      } catch (error) {
+        console.warn("Desktop integration refresh failed:", error.message);
+      }
+    }, 200);
+    refresh.unref?.();
+  }
+  function connect() {
+    if (stopped) return;
+    let pending = "";
+    socket = net.createConnection(socketPath);
+    socket.unref?.();
+    socket.setEncoding("utf8");
+    socket.on("connect", () => {
+      if (connectedOnce) scheduleRefresh();
+      connectedOnce = true;
+    });
+    socket.on("data", (chunk) => {
+      if (stopped) return;
+      pending += chunk;
+      const lines = pending.split("\n");
+      pending = lines.pop().slice(-8192);
+      if (lines.some((line) => line.startsWith("configreloaded>>")))
+        scheduleRefresh();
+    });
+    socket.on("error", () => {});
+    socket.on("close", () => {
+      if (stopped) return;
+      reconnect = setTimeout(connect, 1000);
+      reconnect.unref?.();
+    });
+  }
+  connect();
+  return () => {
+    stopped = true;
+    clearTimeout(reconnect);
+    clearTimeout(refresh);
+    socket?.destroy();
+  };
+}
+
 function createStorageCodec(safeStorage) {
   const backend =
     isLinux && safeStorage?.getSelectedStorageBackend
@@ -151,7 +218,7 @@ function registerCompositorShortcut(accelerator) {
   )
     return false;
   const mask = parts.reduce((value, p) => value | masks[p], 0);
-  const description = "Ghost Notes global new note";
+  const description = "Ghost Notes global new note " + shortcutOwner;
   try {
     const binds = JSON.parse(
       execFileSync("hyprctl", ["binds", "-j"], {
@@ -180,7 +247,7 @@ function registerCompositorShortcut(accelerator) {
       .filter(([m]) => mask & m)
       .map(([, n]) => n);
     const keys = [...mods, key.toUpperCase()].join(" + ");
-    const lua = `if ghost_notes_shortcut then ghost_notes_shortcut:unbind() end; ghost_notes_shortcut = hl.bind(${JSON.stringify(keys)}, hl.dsp.exec_cmd(${JSON.stringify(desktopCommand)}), { description = ${JSON.stringify(description)} })`;
+    const lua = `ghost_notes_shortcuts = ghost_notes_shortcuts or {}; local owner = ${JSON.stringify(shortcutOwner)}; if ghost_notes_shortcuts[owner] then ghost_notes_shortcuts[owner]:unbind() end; ghost_notes_shortcuts[owner] = hl.bind(${JSON.stringify(keys)}, hl.dsp.exec_cmd(${JSON.stringify(desktopCommand)}), { description = ${JSON.stringify(description)} })`;
     const result = execFileSync("hyprctl", ["eval", lua], {
       encoding: "utf8",
       timeout: 2500,
@@ -200,7 +267,7 @@ function unregisterCompositorShortcut() {
       "hyprctl",
       [
         "eval",
-        "if ghost_notes_shortcut then ghost_notes_shortcut:unbind(); ghost_notes_shortcut = nil end",
+        `local owner = ${JSON.stringify(shortcutOwner)}; if ghost_notes_shortcuts and ghost_notes_shortcuts[owner] then ghost_notes_shortcuts[owner]:unbind(); ghost_notes_shortcuts[owner] = nil end`,
       ],
       { timeout: 2500, stdio: "ignore" },
     );
@@ -376,6 +443,7 @@ module.exports = {
   installLinuxDesktop,
   noteWindowOptions,
   installDesktopIntegration,
+  watchDesktopChanges,
   createStorageCodec,
   runtimeStatus,
   setShortcutStatus,

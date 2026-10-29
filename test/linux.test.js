@@ -12,6 +12,8 @@ function platformFor(platform, overrides = {}, env = {}) {
     require: (name) => overrides[name] || require(name),
     process: { platform, env, execPath: "/test/electron" },
     __dirname: path.resolve(__dirname, ".."),
+    setTimeout,
+    clearTimeout,
     console: { warn() {} },
   };
   vm.runInNewContext(
@@ -261,4 +263,58 @@ test("compositor shortcut conflicts are reported without taking over bindings", 
   assert.equal(p.registerCompositorShortcut("Ctrl+Alt+Shift+N"), false);
   assert.equal(p.hasShortcutConflict(), true);
   assert.deepEqual(calls, ["binds"]);
+});
+
+test("desktop watcher restores integration after fragmented reload events and stops cleanly", async () => {
+  const { EventEmitter } = require("node:events");
+  const socket = new EventEmitter();
+  socket.setEncoding = () => {};
+  socket.unref = () => {};
+  socket.destroy = () => {
+    socket.emit("close");
+  };
+  let requestedPath;
+  const p = platformFor("linux", {
+    "node:net": {
+      createConnection(value) {
+        requestedPath = value;
+        return socket;
+      },
+    },
+  });
+  let calls = 0;
+  const stop = p.watchDesktopChanges(
+    () => {
+      calls++;
+    },
+    {
+      XDG_RUNTIME_DIR: "/run/user/1000",
+      HYPRLAND_INSTANCE_SIGNATURE: "sample",
+    },
+  );
+  assert.equal(requestedPath, "/run/user/1000/hypr/sample/.socket2.sock");
+  socket.emit("connect");
+  socket.emit("data", "activewindow>>other app\nconfigrelo");
+  socket.emit("data", "aded>>\n");
+  await new Promise((resolve) => setTimeout(resolve, 250));
+  assert.equal(calls, 1);
+  stop();
+  socket.emit("data", "configreloaded>>\n");
+  await new Promise((resolve) => setTimeout(resolve, 250));
+  assert.equal(calls, 1);
+});
+
+test("desktop watcher does nothing outside a Hyprland Linux session", () => {
+  const p = platformFor("darwin", {
+    "node:net": {
+      createConnection() {
+        throw new Error("must not connect");
+      },
+    },
+  });
+  const stop = p.watchDesktopChanges(() => {}, {
+    XDG_RUNTIME_DIR: "/run/user/1000",
+    HYPRLAND_INSTANCE_SIGNATURE: "sample",
+  });
+  assert.doesNotThrow(stop);
 });

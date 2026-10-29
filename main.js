@@ -41,6 +41,7 @@ let writeErrorShown = false;
 let store = null;
 let manager = null;
 let noteCollapse = null;
+let stopDesktopWatch = null;
 
 // OS-backed encryption for notes.json, or plaintext if the platform cannot encrypt.
 function createStoreCodec() {
@@ -751,6 +752,13 @@ if (!gotLock) {
     }
     setupTray();
     registerFallbackShortcut(globalShortcut, () => createNoteNearCursor());
+    stopDesktopWatch = platform.watchDesktopChanges(() => {
+      platform.installDesktopIntegration();
+      unregisterFallbackShortcut(globalShortcut);
+      registerFallbackShortcut(globalShortcut, () => createNoteNearCursor());
+      manager.notifyChanged();
+      updateTrayMenu();
+    });
 
     if (store.all().length === 0) {
       createNoteNearCursor();
@@ -772,6 +780,7 @@ if (!gotLock) {
   });
 
   app.on("will-quit", () => {
+    stopDesktopWatch?.();
     unregisterFallbackShortcut(globalShortcut);
   });
 
