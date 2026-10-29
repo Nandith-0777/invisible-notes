@@ -1,6 +1,6 @@
 {
-  "tests": 99,
-  "pass": 92,
+  "tests": 101,
+  "pass": 94,
   "fail": 0,
   "skipped": 7,
   "command": "npm test",
