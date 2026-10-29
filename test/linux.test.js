@@ -292,7 +292,10 @@ test("desktop watcher restores integration after fragmented reload events and st
       HYPRLAND_INSTANCE_SIGNATURE: "sample",
     },
   );
-  assert.equal(requestedPath, "/run/user/1000/hypr/sample/.socket2.sock");
+  assert.equal(
+    requestedPath,
+    path.join("/run/user/1000", "hypr", "sample", ".socket2.sock"),
+  );
   socket.emit("connect");
   socket.emit("data", "activewindow>>other app\nconfigrelo");
   socket.emit("data", "aded>>\n");
