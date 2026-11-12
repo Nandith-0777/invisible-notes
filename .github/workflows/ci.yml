@@ -36,3 +36,7 @@ jobs:
       - name: Test Ubuntu installer transactions
         if: matrix.os == 'ubuntu-latest' && matrix.node-version == 22
         run: python3 packaging/ubuntu/test_capture_install.py
+
+      - name: Test shared release publishing
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == 22
+        run: python3 test/release_publish_test.py
