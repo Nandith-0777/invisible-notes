@@ -6,6 +6,8 @@ cd "$root"
 [[ $ID == ubuntu && $VERSION_ID == 24.04 && $(uname -m) == x86_64 ]] || {
   echo 'Build this installer on Ubuntu 24.04 amd64'; exit 1;
 }
+# Electron 43 downloads lazily; materialize the runtime before inspecting ELF dependencies.
+node node_modules/electron/install.js
 version=46.2-1ubuntu0.24.04.18
 work="$HOME/ghost-notes-gnome"
 mkdir -p "$work"
