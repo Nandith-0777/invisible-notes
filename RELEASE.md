@@ -1,13 +1,50 @@
 # Releasing Ghost Notes
 
-## Current state (be honest about this)
+## One source, one release, separate installers
 
-Pushing a `v*` tag triggers `.github/workflows/release.yml`, which builds a macOS universal `.dmg`/`.zip` and a Windows NSIS installer and attaches them to a GitHub Release. **Neither build is currently code-signed or notarized** — no Apple Developer or Windows code-signing certificate is configured in this environment. Until that's set up:
+The default `develop` branch contains the common application and all platform
+integrations. Operating systems do not have separate release branches.
 
-- **macOS**: users seeing "Ghost Notes.app is damaged / from an unidentified developer" is expected. They can right-click → Open, or `xattr -cr /Applications/Ghost\ Notes.app`, to bypass Gatekeeper on an unsigned/unnotarized build.
-- **Windows**: SmartScreen will warn "Windows protected your PC" on first run. Users need "More info" → "Run anyway".
+- Shared UI and storage: `main.js`, `note/`, `manager/`, `store.js`.
+- OS differences: `platform.js`.
+- Native Linux integrations: `integrations/gnome-capture/` and `integrations/hyprland-capture/`.
+- Complete Ubuntu package: `packaging/ubuntu/`.
 
-This is a real limitation, not a bug — fix it by adding the secrets below.
+`.github/workflows/release.yml` builds Windows, macOS and Ubuntu from the same
+commit and app version. It only creates the combined draft release after every
+platform build succeeds. Windows uses NSIS `.exe`; macOS produces universal
+`.dmg`/`.zip`; Ubuntu builds its native companion on `ubuntu-24.04` and includes
+it with Electron in a `.deb`. The Ubuntu job also exports corresponding native
+source. Ordinary Electron Linux packaging does not enable Ubuntu invisibility.
+
+## Build a preview
+
+1. Update `package.json` and the root version entries in `package-lock.json`.
+2. Run formatting, app tests and installer transaction tests.
+3. Push the default branch, then run **Build & Release** in GitHub Actions.
+   Alternatively push a matching version tag, such as `v1.3.0-beta.1`.
+4. Review the combined draft release, test the actual installers, and publish
+   it when ready. Preview versions are marked prerelease; drafts are not public
+   downloads. Published releases are never overwritten by the workflow.
+
+A mismatched version tag is rejected. The first unified preview is
+`1.3.0-beta.1`; the Debian version maps prerelease `-` to `~` and includes an
+Ubuntu package revision. All three assets keep the same app version in their
+filenames. `SHA256SUMS` covers the combined downloads.
+
+The Ubuntu target remains limited to GNOME Wayland with Mutter
+`46.2-1ubuntu0.24.04.18`. Supporting another revision requires rebuilding and
+revalidation. Native build prerequisites are isolated to CI/the developer's
+build machine, not installed on end-user machines. See [Ubuntu package
+instructions](packaging/ubuntu/README.md).
+
+## Signing status
+
+Certificate configuration must be checked before claiming builds are signed.
+The existing macOS configuration explicitly has `identity: null` and therefore
+produces unsigned previews. Windows signing is enabled only when the matching
+certificate secrets are configured. The workflow passes the existing signing
+variables through to the platform builders.
 
 ## To sign & notarize macOS builds
 

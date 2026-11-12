@@ -9,7 +9,25 @@ The exact Mutter dependency intentionally prevents installing this preview on
 an untested revision. A new compositor revision requires rebuilding and testing
 another installer. Do not force dependency overrides.
 
-Build on Ubuntu using `build-deb.py`, supplying the Electron distribution and
+For a complete source build on Ubuntu 24.04, install Node.js 22 and run:
+
+```sh
+npm ci
+npm run dist:ubuntu
+```
+
+This prepares the native build dependencies with sudo, compiles the exact
+Mutter revision, exports its corresponding source and symbol-derived runtime
+dependencies, then assembles the `.deb`. Build prerequisites are for developers
+and CI only. The GitHub release workflow runs this on `ubuntu-24.04`.
+
+All platform installers share the version in `package.json`. Ubuntu maps
+prerelease `-` to Debian `~`, with an Ubuntu package revision, while its download
+filename retains the common app version. The previously tested local
+`1.2.2+ubuntu24.04.2` package remains documented in the historical VM report.
+
+For an existing verified native build, use `prepare-companion.py` to export the
+binary, source and dependency manifest, then build on Ubuntu using `build-deb.py`, supplying the Electron distribution and
 an external companion artifact directory containing `manifest.json`,
 `libmutter-14.so.0.0.0`, and `mutter-source.tar.xz`. The source archive must contain
 the corresponding modified Mutter source and build scripts, excluding generated
@@ -28,7 +46,7 @@ python3 packaging/ubuntu/build-deb.py \
 Install with Ubuntu's package installer, or from a terminal:
 
 ```sh
-sudo apt install ./ghost-notes-ubuntu_1.2.2+ubuntu24.04.2_amd64.deb
+sudo apt install ./Ghost-Notes-1.3.0-beta.1-ubuntu-24.04-amd64.deb
 ```
 
 Then save work, restart Ubuntu, and open **Ghost Notes** in the launcher.

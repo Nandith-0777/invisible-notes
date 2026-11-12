@@ -1,6 +1,6 @@
 {
   "name": "invisible-notes",
-  "version": "1.2.2",
+  "version": "1.3.0-beta.1",
   "description": "Ghost Notes: translucent sticky notes that stay invisible to screen sharing and recording.",
   "main": "main.js",
   "scripts": {
@@ -14,7 +14,9 @@
     "dist:win": "electron-builder --win",
     "dist:linux": "electron-builder --linux",
     "setup:linux": "node scripts/setup-linux.js",
-    "build:capture-plugin": "sh scripts/build-capture-plugin.sh"
+    "build:capture-plugin": "sh scripts/build-capture-plugin.sh",
+    "dist:ubuntu": "bash packaging/ubuntu/build-release.sh",
+    "release:metadata": "node scripts/release-metadata.js"
   },
   "author": "Navya Bijoy",
   "license": "Apache-2.0",
@@ -77,11 +79,13 @@
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
       "entitlements": "build/entitlements.mac.plist",
-      "entitlementsInherit": "build/entitlements.mac.plist"
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "artifactName": "Ghost-Notes-${version}-${arch}.${ext}"
     },
     "win": {
       "target": "nsis",
-      "icon": "build/icon.png"
+      "icon": "build/icon.png",
+      "artifactName": "Ghost-Notes-Setup-${version}.${ext}"
     },
     "nsis": {
       "oneClick": false,
@@ -98,7 +102,6 @@
     "linux": {
       "target": [
         "AppImage",
-        "deb",
         "tar.gz"
       ],
       "category": "Office",

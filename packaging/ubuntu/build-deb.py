@@ -9,7 +9,8 @@ import subprocess
 import tarfile
 import tempfile
 
-VERSION = '1.2.2+ubuntu24.04.2'
+APP_VERSION = json.loads((Path(__file__).resolve().parents[2] / 'package.json').read_text())['version']
+VERSION = APP_VERSION.replace('-', '~', 1) + '+ubuntu24.04.1'
 MUTTER = '46.2-1ubuntu0.24.04.18'
 LIBRARY = 'libmutter-14.so.0.0.0'
 ROOT = Path(__file__).resolve().parents[2]
@@ -52,7 +53,7 @@ def build(electron, companion, output):
     if 'libdisplay-info1' not in native_dependencies or '\n' in native_dependencies:
         raise ValueError('Verified native runtime dependency metadata is required')
     output.mkdir(parents=True, exist_ok=True)
-    result = output / ('ghost-notes-ubuntu_' + VERSION + '_amd64.deb')
+    result = output / ('Ghost-Notes-' + APP_VERSION + '-ubuntu-24.04-amd64.deb')
     with tempfile.TemporaryDirectory(prefix='ghost-notes-deb-') as temp:
         stage = Path(temp)
         app = stage / 'opt/ghost-notes-ubuntu/app'

@@ -1,7 +1,5 @@
 name: Build & Release
 
-# Builds macOS (universal), Windows and Linux artifacts and attaches them to a
-# GitHub Release whenever you push a version tag like v1.0.0.
 on:
   push:
     tags:
@@ -9,56 +7,161 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: release-${{ github.repository }}
+  cancel-in-progress: false
 
 jobs:
-  release:
+  version:
+    name: Validate shared release version
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.metadata.outputs.version }}
+      tag: ${{ steps.metadata.outputs.tag }}
+      prerelease: ${{ steps.metadata.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - id: metadata
+        run: node scripts/release-metadata.js
+
+  desktop:
+    name: Build ${{ matrix.platform }} installer
+    needs: version
     strategy:
-      matrix:
-        os: [macos-latest, windows-latest, ubuntu-latest]
       fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            platform: macos
+          - os: windows-latest
+            platform: windows
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
-
       - run: npm ci
-
-      # Signing/notarization only activates if the corresponding secrets are
-      # configured in the repo (Settings -> Secrets and variables -> Actions).
-      # Unset secrets resolve to empty strings and electron-builder falls back
-      # to an unsigned build — see RELEASE.md for what to add for a fully
-      # signed & notarized production release.
-      - name: Build & publish (macOS universal)
-        if: matrix.os == 'macos-latest'
-        run: npx electron-builder --mac --universal --publish always
+      - run: npm test
+      - name: Build macOS universal installer
+        if: matrix.platform == 'macos'
+        run: npx electron-builder --mac --universal --publish never
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Without this, electron-builder auto-discovers any ambient identity
-          # in the runner's default keychain and tries to sign with it, which
-          # fails when there's no matching password. Explicit CSC_LINK below
-          # still works fine with auto-discovery off.
           CSC_IDENTITY_AUTO_DISCOVERY: false
           CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-
-      - name: Build & publish (Windows)
-        if: matrix.os == 'windows-latest'
-        run: npx electron-builder --win --publish always
+      - name: Build Windows installer
+        if: matrix.platform == 'windows'
+        run: npx electron-builder --win --publish never
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-${{ matrix.platform }}
+          if-no-files-found: error
+          compression-level: 0
+          path: |
+            dist/*.exe
+            dist/*.dmg
+            dist/*.zip
+            dist/*.blockmap
+            dist/*.yml
 
-      - name: Build & publish (Linux)
-        if: matrix.os == 'ubuntu-latest'
-        run: npm run dist:linux -- --publish always
+  ubuntu:
+    name: Build Ubuntu installer with capture integration
+    needs: version
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run format:check
+      - run: npm test
+      - run: python3 packaging/ubuntu/test_capture_install.py
+      - name: Build complete Ubuntu package and corresponding native source
+        run: npm run dist:ubuntu
+      - name: Verify package payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          package=(dist/*.deb)
+          dpkg-deb --info "${package[0]}"
+          dpkg-deb --fsys-tarfile "${package[0]}" | tar -tf - > out/ubuntu-package-files.txt
+          grep -Fx './usr/bin/ghost-notes' out/ubuntu-package-files.txt
+          grep -Fx './usr/lib/ghost-notes-ubuntu/libmutter-14.so.0.0.0' out/ubuntu-package-files.txt
+          grep -Fx './opt/ghost-notes-ubuntu/electron/electron' out/ubuntu-package-files.txt
+          grep -Fx './usr/share/doc/ghost-notes-ubuntu/mutter-source.tar.xz' out/ubuntu-package-files.txt
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-ubuntu
+          if-no-files-found: error
+          compression-level: 0
+          path: |
+            dist/*.deb
+            dist/*.sha256
+            dist/*-ubuntu-mutter-source.tar.xz
+
+  publish:
+    name: Attach all installers to one draft release
+    needs: [version, desktop, ubuntu]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: release-*
+          merge-multiple: true
+          path: release-assets
+      - name: Add checksums
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib
+          root = Path('release-assets')
+          files = sorted(p for p in root.iterdir() if p.is_file())
+          assert any(p.suffix == '.exe' for p in files)
+          assert any(p.suffix == '.dmg' for p in files)
+          assert any(p.suffix == '.deb' for p in files)
+          (root / 'SHA256SUMS').write_text(''.join(
+              hashlib.sha256(p.read_bytes()).hexdigest() + '  ' + p.name + '\n'
+              for p in files
+          ))
+          PY
+      - name: Create or update the draft
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ needs.version.outputs.tag }}
+          RELEASE_VERSION: ${{ needs.version.outputs.version }}
+          IS_PRERELEASE: ${{ needs.version.outputs.prerelease }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag_sha=$(gh api "repos/$GH_REPO/commits/$RELEASE_TAG" --jq .sha 2>/dev/null || true)
+          [[ -z "$tag_sha" || "$tag_sha" == "$GITHUB_SHA" ]] || { echo 'Tag points to a different source commit'; exit 1; }
+          if existing=$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft 2>/dev/null); then
+            [[ "$existing" == true ]] || { echo 'Refusing to overwrite a published release'; exit 1; }
+            gh release edit "$RELEASE_TAG" --target "$GITHUB_SHA" --notes-file .github/release-notes.md
+          else
+            options=(--draft --target "$GITHUB_SHA" --title "Ghost Notes $RELEASE_VERSION" --notes-file .github/release-notes.md)
+            [[ "$IS_PRERELEASE" != true ]] || options+=(--prerelease)
+            gh release create "$RELEASE_TAG" "${options[@]}"
+          fi
+          assets=(release-assets/*)
+          gh release upload "$RELEASE_TAG" "${assets[@]}" --clobber
