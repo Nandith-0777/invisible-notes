@@ -76,6 +76,7 @@ jobs:
             dist/*.zip
             dist/*.blockmap
             dist/*.yml
+            !dist/builder-debug.yml
 
   ubuntu:
     name: Build Ubuntu installer with capture integration
