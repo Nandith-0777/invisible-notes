@@ -156,18 +156,22 @@ Capture protection still depends on the actual recorder's capture path.
 
 Grab the latest build from the **[Releases page](https://github.com/Nandith-0777/invisible-notes/releases)**:
 
-| Platform | Artifact                                               |
-| -------- | ------------------------------------------------------ |
-| macOS    | `Ghost Notes-*.dmg` (universal, Intel + Apple Silicon) |
-| Windows  | `Ghost Notes Setup *.exe` (NSIS installer)             |
+| Platform     | Artifact                                                            |
+| ------------ | ------------------------------------------------------------------- |
+| macOS        | `Ghost-Notes-*-universal.dmg` (Intel + Apple Silicon)               |
+| Windows      | `Ghost-Notes-Setup-*.exe` (NSIS installer)                          |
+| Ubuntu 24.04 | `Ghost-Notes-*-ubuntu-24.04-amd64.deb` (complete preview installer) |
 
 > [!NOTE]
 > Builds are currently **unsigned**. On macOS you may need to right-click → **Open** the first time (or `xattr -cr /Applications/Ghost\ Notes.app`); on Windows choose **More info → Run anyway** in SmartScreen. This is expected until code-signing is configured — see [RELEASE.md](RELEASE.md).
 
-Prefer to run from source:
+Ubuntu users install the `.deb` with App Center and restart Ubuntu once. See
+[the supported compositor version and install steps](UBUNTU.md).
+
+Prefer to run from source with Node.js 22 or newer:
 
 ```bash
-git clone --branch feat/linux-support https://github.com/Nandith-0777/invisible-notes.git
+git clone https://github.com/Nandith-0777/invisible-notes.git
 cd invisible-notes
 npm install
 npm start
@@ -366,7 +370,8 @@ There is **no bundler and no TypeScript** — plain Node.js + Electron with Comm
 ```bash
 npm run dist:mac    # macOS .dmg / .zip (universal)
 npm run dist:win    # Windows installer (.exe via NSIS)
-npm run dist:linux  # Linux AppImage / .deb / .tar.gz
+npm run dist:ubuntu # Ubuntu 24.04 .deb with the native capture integration
+npm run dist:linux  # Generic Linux AppImage / .tar.gz; no Ubuntu capture companion
 ```
 
 Pushing a `v*` tag triggers the release workflow (`.github/workflows/release.yml`), which builds macOS, Windows and Linux artifacts and attaches them to a GitHub Release. See [RELEASE.md](RELEASE.md) for signing/notarization setup and the full release checklist.
