@@ -119,7 +119,7 @@ def build(electron, companion, output):
             'Package: ghost-notes-ubuntu\nVersion: ' + VERSION + '\n'
             'Section: utils\nPriority: optional\nArchitecture: amd64\n'
             'Maintainer: Nandith Narayanan <184540937+Nandith-0777@users.noreply.github.com>\n'
-            'Homepage: https://github.com/Nandith-0777/ghost-notes-ubuntu\n'
+            'Homepage: https://github.com/Nandith-0777/invisible-notes\n'
             'Installed-Size: ' + str(size) + '\nDepends: ' + ', '.join(dependencies) + '\n'
             'Description: Floating notes with experimental Ubuntu capture exclusion\n'
             ' Ghost Notes by Navya Bijoy, with Ubuntu integration by Nandith Narayanan.\n'
