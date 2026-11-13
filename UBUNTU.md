@@ -109,7 +109,7 @@ personal notes remain in your profile.
 Use the current shared source, including the tested original UI:
 
 ```sh
-git clone --branch test/navya-ui-omarchy https://github.com/Nandith-0777/invisible-notes.git
+git clone --branch feat/ubuntu-integration https://github.com/Nandith-0777/invisible-notes.git
 cd invisible-notes
 npm ci
 npm start
@@ -122,7 +122,7 @@ themselves. To build the full Ubuntu installer on the supported Ubuntu target:
 npm run dist:ubuntu
 ```
 
-See the [Ubuntu packaging guide](https://github.com/Nandith-0777/invisible-notes/blob/test/navya-ui-omarchy/packaging/ubuntu/README.md)
+See the [Ubuntu packaging guide](https://github.com/Nandith-0777/invisible-notes/blob/feat/ubuntu-integration/packaging/ubuntu/README.md)
 for build requirements and companion details.
 
 </details>
@@ -149,7 +149,7 @@ Ubuntu releases, compositor revisions and ARM64 is not established by this test.
 | Normal profile                | GNOME libsecret encryption active; global shortcut registration confirmed.                  |
 | Application tests             | **136 passed · 7 skipped · 0 failed** for the tested UI source.                             |
 
-[Read the latest Ubuntu verification report](https://github.com/Nandith-0777/invisible-notes/tree/test/navya-ui-omarchy/validation/navya-ui-ubuntu-20261113)
+[Read the latest Ubuntu verification report](https://github.com/Nandith-0777/invisible-notes/tree/feat/ubuntu-integration/validation/navya-ui-ubuntu-20261113)
 · [Earlier capture and rollback tests](validation/ubuntu-gnome-20261112/README.md)
 
 Zoom, physical GPU capture, multiple displays and fractional scaling still need
