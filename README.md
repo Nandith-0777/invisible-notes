@@ -36,6 +36,14 @@ and tested limits](UBUNTU.md), [the installer](packaging/ubuntu/README.md), and
 [how releases work](RELEASE.md). End users install the file for their system;
 they do not select an operating-system branch or run npm.
 
+### See Ghost Notes on Ubuntu
+
+Navya’s original interface is now tested in the Ubuntu VM, with floating notes,
+click-through toolbar recovery and capture exclusion.
+[Explore the Ubuntu screenshots, installation guide and test results →](UBUNTU.md)
+
+[![Ghost Notes on Ubuntu with colourful floating notes and the Notes Manager](docs/images/ubuntu/notes-manager.png)](UBUNTU.md)
+
 **Linux support in this fork:** see [LINUX.md](LINUX.md) for installation,
 Hyprland integration, keychain setup, packaging and verified limits. Ordinary
 notes work through X11/XWayland; capture masking is compositor-specific and
