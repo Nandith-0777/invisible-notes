@@ -1,12 +1,12 @@
-let runtimeInfo = null;
+let linuxConfirmations = false;
 const ALL_SCOPE = "__all__";
 
 const COLOR_TINTS = {
-  yellow: "#fff2b8",
-  green: "#daeed7",
-  blue: "#d7e8fc",
-  pink: "#f9dce9",
-  purple: "#e6dcfa",
+  yellow: "#f0e27f",
+  green: "#bbf7d0",
+  blue: "#bfdbfe",
+  pink: "#fbcfe8",
+  purple: "#ddd6fe",
   dark: "#28292e",
 };
 
@@ -98,14 +98,14 @@ const SETTING_TITLES = {
 
 const SCOPE_SECTIONS = [
   {
-    scope: "global",
-    title: "Global shortcuts — use from any app",
-    note: "Set your preferred combinations here. They work while another app has focus or all notes are hidden. Ghost Notes must be running in the tray.",
+    scope: "app",
+    title: "In Ghost Notes",
+    note: "Active while a note or this window has focus, so the same keys stay free in your browser and editor.",
   },
   {
-    scope: "app",
-    title: "App-only shortcuts — optional alternatives",
-    note: "These only work while a Ghost Notes window has focus. To use a combination from your browser or editor, change the global shortcut above instead.",
+    scope: "global",
+    title: "Anywhere",
+    note: "Registered system-wide, so you can always reach a new note even when every Ghost Notes window is hidden.",
   },
 ];
 
@@ -139,7 +139,6 @@ let listScope = null;
 let sidebarOpen = false;
 let appearance = { theme: "system", accent: "violet", effectiveDark: false };
 let query = "";
-let noteFilter = "all";
 let shortcuts = [];
 let appVersion = "";
 let formMode = null;
@@ -148,7 +147,6 @@ let settingsPane = "appearance";
 let menuNoteId = null;
 let noteMenuMode = "root";
 let noteMenuAnchor = null;
-let activeMenuAnchor = null;
 let focusBeforeSettings = null;
 
 document.getElementById("searchHint").textContent = isMac ? "⌘K" : "Ctrl+K";
@@ -199,10 +197,7 @@ function htmlToText(html) {
 function snippet(note) {
   const raw = note.text || "";
   const plain = note.rich ? htmlToText(raw) : raw;
-  return plain
-    .replace(/[ \t]+/g, " ")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
+  return plain.replace(/\s+/g, " ").trim();
 }
 
 function plural(n, word) {
@@ -224,9 +219,7 @@ function relativeTime(ts) {
 
 function matches(note, q) {
   if (!q) return true;
-  const hay = (label(note) + " " + snippet(note))
-    .replace(/\s+/g, " ")
-    .toLowerCase();
+  const hay = (label(note) + " " + snippet(note)).toLowerCase();
   return hay.includes(q.toLowerCase());
 }
 
@@ -264,14 +257,13 @@ function applyChrome() {
     listScope === ALL_SCOPE
       ? notes.length
       : countIn(listScope || activeWorkspace);
-  document.getElementById("pageTitle").textContent = scopeTitle();
-  pageSubEl.textContent = `${plural(count, "note")} · A little room for your ideas`;
+  pageSubEl.textContent = `${scopeTitle()} · ${plural(count, "note")}`;
   const current = currentWorkspace();
   if (current) {
     const idx = workspaces.findIndex((w) => w.id === current.id);
     wsChipDotEl.style.background = workspaceTint(Math.max(0, idx)).bg;
     wsChipDotEl.hidden = false;
-    wsChipLabelEl.textContent = "Switch workspace";
+    wsChipLabelEl.textContent = `${current.name} · ${plural(countIn(current.id), "note")}`;
   }
 }
 
@@ -280,7 +272,6 @@ function wsIconButton({ id, name, count, tint, iconHtml, active }) {
   btn.type = "button";
   btn.className = "ws-item" + (active ? " is-active" : "");
   btn.dataset.workspaceId = id;
-  btn.setAttribute("aria-current", active ? "page" : "false");
 
   const ico = document.createElement("span");
   ico.className = "ws-ico";
@@ -343,30 +334,10 @@ function selectScope(id) {
 
 function render() {
   const inScope = notesForList();
-  document.getElementById("allCount").textContent = inScope.length;
-  document.getElementById("openCount").textContent = inScope.filter(
-    (n) => n.visible,
-  ).length;
-  document.getElementById("hiddenCount").textContent = inScope.filter(
-    (n) => !n.visible,
-  ).length;
-  document
-    .querySelectorAll("[data-filter]")
-    .forEach((button) =>
-      button.setAttribute(
-        "aria-pressed",
-        String(button.dataset.filter === noteFilter),
-      ),
-    );
   const filtered = inScope
     .slice()
     .sort((a, b) => b.updatedAt - a.updatedAt)
-    .filter((n) => matches(n, query))
-    .filter(
-      (n) =>
-        noteFilter === "all" ||
-        (noteFilter === "open" ? n.visible : !n.visible),
-    );
+    .filter((n) => matches(n, query));
 
   listEl.innerHTML = "";
 
@@ -382,16 +353,11 @@ function render() {
     message.appendChild(
       document.createTextNode(
         newNoteKeys
-          ? `Create a note or press ${newNoteKeys}.`
-          : "Create your first note to get started.",
+          ? `Click "New" or press ${newNoteKeys} to create one.`
+          : 'Click "New" to create one.',
       ),
     );
     empty.appendChild(message);
-    const create = document.createElement("button");
-    create.className = "btn";
-    create.textContent = "Create a note";
-    create.addEventListener("click", () => window.manager.newNote());
-    empty.appendChild(create);
     listEl.appendChild(empty);
     return;
   }
@@ -401,36 +367,22 @@ function render() {
     empty.className = "empty";
     empty.innerHTML = ICONS.notes;
     const message = document.createElement("div");
-    message.textContent = query
-      ? "No notes match your search."
-      : noteFilter === "open"
-        ? "No notes on your desktop. Open one from All notes."
-        : "No hidden notes. Your notes are on the desktop.";
+    message.textContent = "No notes match your search.";
     empty.appendChild(message);
     listEl.appendChild(empty);
     return;
   }
 
   for (const note of filtered) {
-    const card = document.createElement("article");
-    card.dataset.noteId = note.id;
+    const card = document.createElement("div");
     card.className = "card" + (note.visible ? " is-open" : "");
 
     const swatch = document.createElement("div");
     swatch.className = "swatch";
     swatch.style.background = COLOR_TINTS[note.color] || COLOR_TINTS.yellow;
 
-    const info = document.createElement(
-      renamingId === note.id ? "div" : "button",
-    );
+    const info = document.createElement("div");
     info.className = "info";
-    if (info.tagName === "BUTTON") {
-      info.type = "button";
-      info.setAttribute(
-        "aria-label",
-        "Open " + (label(note) || "Untitled note"),
-      );
-    }
 
     if (renamingId === note.id) {
       const titleInput = document.createElement("input");
@@ -491,20 +443,10 @@ function render() {
       openNoteMenu(note, more);
     });
 
-    const head = document.createElement("div");
-    head.className = "card-head";
-    const status = document.createElement("span");
-    status.className = "card-status";
-    status.textContent = note.visible ? "On desktop" : "Hidden";
-    head.append(swatch, status, more);
-    const foot = document.createElement("div");
-    foot.className = "card-foot";
-    const workspaceLabel = document.createElement("span");
-    workspaceLabel.className = "card-workspace";
-    workspaceLabel.textContent =
-      workspaces.find((w) => w.id === note.workspaceId)?.name || "Notes";
-    foot.append(workspaceLabel, metaEl);
-    card.append(head, info, foot);
+    card.appendChild(swatch);
+    card.appendChild(info);
+    card.appendChild(metaEl);
+    card.appendChild(more);
     card.addEventListener("click", () => {
       if (renamingId === note.id) return;
       window.manager.open(note.id);
@@ -538,7 +480,7 @@ function applyAppearance() {
 }
 
 function applySnapshot(snapshot) {
-  runtimeInfo = snapshot.runtime || null;
+  linuxConfirmations = snapshot.runtime?.platform === "linux";
   notes = snapshot.notes || [];
   workspaces = snapshot.workspaces || [];
   activeWorkspace = snapshot.activeWorkspace || null;
@@ -595,13 +537,9 @@ function placePopover(el, anchor) {
   }
   el.style.top = `${top}px`;
   el.style.left = `${left}px`;
-  activeMenuAnchor = anchor;
-  el.querySelector("button:not(:disabled)")?.focus();
 }
 
-function closeMenus(restoreFocus = false) {
-  const anchor = activeMenuAnchor;
-  activeMenuAnchor = null;
+function closeMenus() {
   moreMenuEl.hidden = true;
   wsMenuEl.hidden = true;
   noteMenuEl.hidden = true;
@@ -610,7 +548,6 @@ function closeMenus(restoreFocus = false) {
   menuNoteId = null;
   noteMenuMode = "root";
   noteMenuAnchor = null;
-  if (restoreFocus && anchor?.isConnected) anchor.focus();
 }
 
 function menuButton(opts) {
@@ -719,7 +656,7 @@ function openMoreMenu() {
       onClick: () => {
         closeMenus();
         if (listScope && listScope !== ALL_SCOPE) {
-          confirmDeleteWorkspace(listScope);
+          requestWorkspaceDeletion(listScope);
         }
       },
     }),
@@ -852,62 +789,11 @@ function fillNoteMenu(note) {
       danger: true,
       onClick: () => {
         closeMenus();
-        confirmDeleteNote(note.id);
+        requestNoteDeletion(note);
       },
     }),
   );
 }
-
-const deleteDialog = document.getElementById("deleteDialog");
-let pendingDelete = null;
-let deletionLoading = false;
-function showDeletion({ id, kind, title, description, label }) {
-  if (deleteDialog.open) return;
-  pendingDelete = { id, kind };
-  document.getElementById("deleteTitle").textContent = title;
-  document.getElementById("deleteDescription").textContent = description;
-  document.getElementById("deleteConfirm").textContent = label;
-  deleteDialog.returnValue = "cancel";
-  deleteDialog.showModal();
-}
-function confirmDeleteNote(id) {
-  showDeletion({
-    id,
-    kind: "note",
-    title: "Delete this note?",
-    description:
-      "This permanently removes the note from this device. You won’t be able to undo it.",
-    label: "Delete note",
-  });
-}
-async function confirmDeleteWorkspace(id) {
-  if (deleteDialog.open || deletionLoading) return;
-  deletionLoading = true;
-  try {
-    const preview = await window.manager.workspaceDeletion(id);
-    if (!preview) return;
-    showDeletion({
-      id: preview.id,
-      kind: "workspace",
-      title: `Delete “${preview.name}”?`,
-      description: preview.noteCount
-        ? `${plural(preview.noteCount, "note")} will move to “${preview.destination}”. Your notes will be kept.`
-        : "This workspace is empty. No notes will be affected.",
-      label: "Delete workspace",
-    });
-  } catch {
-    flashStatus("Couldn’t open the confirmation. Try again.");
-  } finally {
-    deletionLoading = false;
-  }
-}
-deleteDialog.addEventListener("close", () => {
-  const pending = pendingDelete;
-  pendingDelete = null;
-  if (deleteDialog.returnValue !== "delete" || !pending) return;
-  if (pending.kind === "workspace") window.manager.deleteWorkspace(pending.id);
-  else window.manager.delete(pending.id);
-});
 
 function openNoteMenu(note, anchor) {
   const already =
@@ -934,30 +820,22 @@ function openWorkspaceForm(mode) {
   wsModalTitleEl.textContent =
     mode === "rename" ? "Rename workspace" : "New workspace";
   wsNameInputEl.value = mode === "rename" && target ? target.name : "";
-  document.getElementById("wsModalDescription").textContent =
-    mode === "rename"
-      ? "A new name for the same collection of notes."
-      : "Give your ideas a place of their own.";
-  document.getElementById("wsSave").textContent =
-    mode === "rename" ? "Save name" : "Create workspace";
-  if (!wsModalEl.open) wsModalEl.showModal();
+  wsModalEl.hidden = false;
   wsNameInputEl.focus();
   wsNameInputEl.select();
 }
 
 function closeWorkspaceForm() {
   formMode = null;
-  if (wsModalEl.open) wsModalEl.close();
+  wsModalEl.hidden = true;
   wsNameInputEl.value = "";
 }
 
 let recordingShortcutId = null;
 let recordingCleanup = null;
-let editingShortcutId = null;
-let shortcutDraft = "";
-let shortcutError = "";
 
 function refreshShortcutsUi() {
+  render();
   if (!settingsEl.hidden && settingsPane === "shortcuts") renderSettingsBody();
 }
 
@@ -972,38 +850,19 @@ function cancelRecording() {
   refreshShortcutsUi();
 }
 
-function openShortcutEditor(shortcut) {
-  cancelRecording();
-  editingShortcutId = shortcut.id;
-  shortcutDraft =
-    ShortcutKeys.parse(shortcut.accelerator, isMac)?.accelerator ||
-    shortcut.accelerator;
-  shortcutError = "";
-  refreshShortcutsUi();
-  document.getElementById("shortcutDraft")?.focus();
-  document.getElementById("shortcutDraft")?.select();
-}
+function electronKeyFromEvent(e) {
+  if (["Control", "Shift", "Alt", "Meta"].includes(e.key)) return null;
 
-function closeShortcutEditor() {
-  cancelRecording();
-  editingShortcutId = null;
-  shortcutError = "";
-  refreshShortcutsUi();
-}
-
-async function saveShortcut(shortcut) {
-  cancelRecording();
-  const result = await window.manager.setShortcut(shortcut.id, shortcutDraft);
-  if (!Array.isArray(result)) {
-    shortcutError = result?.error || "Couldn’t save the shortcut. Try again.";
-    refreshShortcutsUi();
-    return;
+  let key = e.key;
+  if (e.code && e.code.startsWith("Key")) {
+    key = e.code.slice(3).toUpperCase();
+  } else if (e.code && e.code.startsWith("Digit")) {
+    key = e.code.slice(5);
+  } else if (key.length === 1) {
+    key = key.toUpperCase();
   }
-  shortcuts = result;
-  editingShortcutId = null;
-  shortcutError = "";
-  refreshShortcutsUi();
-  flashStatus("Shortcut saved");
+
+  return key;
 }
 
 async function startRecording(shortcut) {
@@ -1012,7 +871,6 @@ async function startRecording(shortcut) {
     return;
   }
   cancelRecording();
-  shortcutError = "";
   recordingShortcutId = shortcut.id;
   refreshShortcutsUi();
   const ready = await window.manager.recordShortcut(true);
@@ -1020,7 +878,7 @@ async function startRecording(shortcut) {
     if (ready) window.manager.recordShortcut(false);
     return;
   }
-  const onKeyDown = (event) => {
+  const onKeyDown = async (event) => {
     event.preventDefault();
     event.stopPropagation();
     if (event.repeat) return;
@@ -1036,77 +894,23 @@ async function startRecording(shortcut) {
     }
     const combo = ShortcutKeys.fromEvent(event);
     if (!combo) return;
-    shortcutDraft = combo.accelerator;
-    cancelRecording();
-    document.getElementById("shortcutDraft")?.focus();
+    document.removeEventListener("keydown", onKeyDown, { capture: true });
+    recordingCleanup = null;
+    const updated = await window.manager.setShortcut(
+      shortcut.id,
+      combo.accelerator,
+    );
+    recordingShortcutId = null;
+    window.manager.recordShortcut(false);
+    if (Array.isArray(updated)) shortcuts = updated;
+    else flashStatus(updated?.error || "Couldn’t save that shortcut.");
+    refreshShortcutsUi();
   };
   document.addEventListener("keydown", onKeyDown, { capture: true });
   recordingCleanup = () =>
     document.removeEventListener("keydown", onKeyDown, { capture: true });
 }
-
 window.manager.onRecordingCancelled(() => cancelRecording());
-
-function shortcutEditor(shortcut) {
-  const editor = document.createElement("div");
-  editor.className = "shortcut-editor";
-  const label = document.createElement("label");
-  label.htmlFor = "shortcutDraft";
-  label.textContent =
-    shortcut.scope === "global"
-      ? "Global combination — works from other apps"
-      : "App-only combination — Ghost Notes must have focus";
-  const input = document.createElement("input");
-  input.id = "shortcutDraft";
-  input.value = shortcutDraft;
-  input.placeholder = "e.g. Alt+F8 or Super+Shift+Space";
-  input.autocomplete = "off";
-  input.spellcheck = false;
-  input.setAttribute("aria-describedby", "shortcutHelp");
-  input.addEventListener("input", () => {
-    shortcutDraft = input.value;
-  });
-  input.addEventListener("focus", () => cancelRecording());
-  input.addEventListener("keydown", (event) => {
-    if (event.key === "Enter") {
-      event.preventDefault();
-      saveShortcut(shortcut);
-    } else if (event.key === "Escape") {
-      event.preventDefault();
-      event.stopPropagation();
-      closeShortcutEditor();
-    }
-  });
-  const help = document.createElement("p");
-  help.id = "shortcutHelp";
-  help.textContent = recordingShortcutId
-    ? "Listening… Hold Ctrl, Alt, Shift, or Super and press another key. Esc cancels."
-    : "Use at least one modifier (Ctrl, Alt, Shift, or Super) plus a letter, number, function key, arrow, punctuation, or numpad key.";
-  const actions = document.createElement("div");
-  actions.className = "shortcut-editor-actions";
-  for (const [text, handler, primary] of [
-    [
-      recordingShortcutId ? "Stop recording" : "Record keys",
-      () => startRecording(shortcut),
-      false,
-    ],
-    ["Cancel", closeShortcutEditor, false],
-    ["Save shortcut", () => saveShortcut(shortcut), true],
-  ]) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = primary ? "btn" : "btn btn-quiet";
-    button.textContent = text;
-    button.addEventListener("click", handler);
-    actions.append(button);
-  }
-  const error = document.createElement("p");
-  error.className = "shortcut-error";
-  error.setAttribute("role", "alert");
-  error.textContent = shortcutError;
-  editor.append(label, input, help, error, actions);
-  return editor;
-}
 
 function shortcutRow(shortcut) {
   const row = document.createElement("div");
@@ -1115,16 +919,10 @@ function shortcutRow(shortcut) {
   text.className = "sc-text";
   const labelEl = document.createElement("div");
   labelEl.className = "sc-label";
-  labelEl.textContent =
-    shortcut.scope === "app" ? `${shortcut.label} (app only)` : shortcut.label;
+  labelEl.textContent = shortcut.label;
   const descEl = document.createElement("div");
   descEl.className = "sc-desc";
-  descEl.textContent =
-    shortcut.registration === "unavailable"
-      ? "Unavailable or already in use. Choose another key combination."
-      : shortcut.description;
-  if (shortcut.registration === "unavailable")
-    descEl.classList.add("shortcut-error");
+  descEl.textContent = shortcut.description;
   text.appendChild(labelEl);
   text.appendChild(descEl);
   const keys = document.createElement("kbd");
@@ -1149,9 +947,10 @@ function shortcutRow(shortcut) {
       e.stopPropagation();
       cancelRecording();
       const updated = await window.manager.resetShortcut(shortcut.id);
-      if (Array.isArray(updated)) shortcuts = updated;
-      else flashStatus(updated?.error || "Couldn’t reset shortcut.");
-      refreshShortcutsUi();
+      if (Array.isArray(updated)) {
+        shortcuts = updated;
+        refreshShortcutsUi();
+      }
     });
     actionsEl.appendChild(resetBtn);
   }
@@ -1167,25 +966,18 @@ function shortcutRow(shortcut) {
   editBtn.innerHTML = ICONS.pencil;
   editBtn.addEventListener("click", (e) => {
     e.stopPropagation();
-    openShortcutEditor(shortcut);
+    startRecording(shortcut);
   });
   actionsEl.appendChild(editBtn);
 
   row.appendChild(text);
   row.appendChild(keys);
   row.appendChild(actionsEl);
-  if (editingShortcutId === shortcut.id)
-    row.appendChild(shortcutEditor(shortcut));
   return row;
 }
 
 function renderShortcutsInto(target) {
   target.innerHTML = "";
-  const help = document.createElement("p");
-  help.className = "field-note";
-  help.textContent =
-    "Choose Ctrl, Alt, Shift, or Super plus another key. System-reserved combinations may be unavailable; conflicts leave your previous shortcut unchanged.";
-  target.append(help);
   for (const section of SCOPE_SECTIONS) {
     const items = shortcuts.filter((s) => s.scope === section.scope);
     if (items.length === 0) continue;
@@ -1261,12 +1053,6 @@ function renderSettingsBody() {
   }
 
   if (settingsPane === "storage") {
-    const storage = document.createElement("p");
-    storage.className = "field-note";
-    storage.textContent = runtimeInfo?.storage?.encrypted
-      ? `Notes encrypted with ${runtimeInfo.storage.backend}.`
-      : "Notes are not encrypted at rest. Unlock or configure your desktop keychain and restart Ghost Notes to enable encryption.";
-    settingsBodyEl.appendChild(storage);
     const note = document.createElement("p");
     note.className = "field-note";
     note.textContent =
@@ -1296,10 +1082,7 @@ function renderSettingsBody() {
     : "Ghost Notes";
   const title = document.createElement("div");
   title.className = "about-title";
-  title.textContent =
-    runtimeInfo?.platform === "linux"
-      ? "Local notes with desktop-aware capture status."
-      : "Private sticky notes.";
+  title.textContent = "Sticky notes that stay off the recording.";
   const note = document.createElement("p");
   note.className = "field-note";
   note.textContent =
@@ -1307,23 +1090,6 @@ function renderSettingsBody() {
   settingsBodyEl.appendChild(kicker);
   settingsBodyEl.appendChild(title);
   settingsBodyEl.appendChild(note);
-  const credits = document.createElement("p");
-  credits.className = "field-note";
-  credits.textContent =
-    "Main developer: Navya Bijoy. Co-developer: Nandith (Nandith-0777), Linux/Hyprland support and Omarchy integration.";
-  settingsBodyEl.appendChild(credits);
-  if (runtimeInfo) {
-    const status = document.createElement("p");
-    status.className = "field-note";
-    status.textContent = [
-      runtimeInfo.capture.message || "OS content protection requested.",
-      `Global shortcut: ${runtimeInfo.globalShortcut}.`,
-      runtimeInfo.backend ? `Display backend: ${runtimeInfo.backend}.` : "",
-    ]
-      .filter(Boolean)
-      .join(" ");
-    settingsBodyEl.appendChild(status);
-  }
 }
 
 function openSettings(pane) {
@@ -1337,18 +1103,11 @@ function openSettings(pane) {
     appEl.inert = true;
   }
   renderSettingsBody();
-  if (settingsPane === "shortcuts")
-    window.manager.shortcuts().then((list) => {
-      shortcuts = list;
-      if (!settingsEl.hidden && settingsPane === "shortcuts")
-        renderSettingsBody();
-    });
   settingsCloseEl.focus();
 }
 
 function closeSettings() {
   cancelRecording();
-  editingShortcutId = null;
   if (settingsEl.hidden) return;
   settingsEl.hidden = true;
   appEl.inert = false;
@@ -1387,13 +1146,6 @@ function flashStatus(text) {
     el.classList.remove("is-on");
   }, 4000);
 }
-
-document.querySelectorAll("[data-filter]").forEach((button) => {
-  button.addEventListener("click", () => {
-    noteFilter = button.dataset.filter;
-    render();
-  });
-});
 
 searchEl.addEventListener("input", () => {
   query = searchEl.value;
@@ -1442,7 +1194,7 @@ wsFormEl.addEventListener("submit", (e) => {
   e.preventDefault();
   const name = wsNameInputEl.value.trim();
   if (!name) {
-    wsNameInputEl.focus();
+    closeWorkspaceForm();
     return;
   }
   if (formMode === "create") window.manager.createWorkspace(name);
@@ -1456,8 +1208,8 @@ wsFormEl.addEventListener("submit", (e) => {
 wsNameInputEl.addEventListener("keydown", (e) => {
   if (e.key === "Escape") closeWorkspaceForm();
 });
-wsModalEl.addEventListener("cancel", () => {
-  formMode = null;
+wsModalEl.addEventListener("click", (e) => {
+  if (e.target === wsModalEl) closeWorkspaceForm();
 });
 
 document.addEventListener("click", (e) => {
@@ -1481,41 +1233,22 @@ document.addEventListener("click", (e) => {
 
 document.addEventListener("keydown", (e) => {
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-    if (settingsEl.hidden && !wsModalEl.open && !deleteDialog.open) {
+    if (settingsEl.hidden && wsModalEl.hidden) {
       e.preventDefault();
       searchEl.focus();
     }
   }
   if (e.key !== "Escape") return;
   if (!moreMenuEl.hidden || !wsMenuEl.hidden || !noteMenuEl.hidden) {
-    closeMenus(true);
+    closeMenus();
     return;
   }
-  if (wsModalEl.open) {
+  if (!wsModalEl.hidden) {
     closeWorkspaceForm();
     return;
   }
   if (!settingsEl.hidden) closeSettings();
 });
-
-for (const menu of [moreMenuEl, wsMenuEl, noteMenuEl]) {
-  menu.addEventListener("keydown", (event) => {
-    if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
-    event.preventDefault();
-    const items = [...menu.querySelectorAll("button:not(:disabled)")];
-    if (!items.length) return;
-    const index = items.indexOf(document.activeElement);
-    const next =
-      event.key === "Home"
-        ? 0
-        : event.key === "End"
-          ? items.length - 1
-          : (index + (event.key === "ArrowUp" ? -1 : 1) + items.length) %
-            items.length;
-    items[next].focus();
-  });
-}
-window.addEventListener("resize", () => closeMenus());
 
 window.manager.onChanged(applySnapshot);
 window.manager.list().then(applySnapshot);
@@ -1536,3 +1269,73 @@ async function openShortcutsFromTray() {
 }
 
 window.manager.onShowShortcuts(openShortcutsFromTray);
+
+let confirmationOpen = false;
+async function confirmInManager(title, description) {
+  if (confirmationOpen) return false;
+  confirmationOpen = true;
+  cancelRecording();
+  const dialog = document.createElement("dialog");
+  dialog.id = "linuxDeleteConfirmation";
+  dialog.className = "modal";
+  dialog.style.cssText =
+    "margin:auto;width:calc(100% - 48px);border:1px solid var(--border);color:var(--ink)";
+  const heading = document.createElement("h2");
+  heading.textContent = title;
+  const message = document.createElement("p");
+  message.textContent = description;
+  message.style.cssText = "font-size:13px;line-height:1.5";
+  const actions = document.createElement("div");
+  actions.className = "modal-actions";
+  for (const [label, value, quiet] of [
+    ["Cancel", "cancel", true],
+    ["Delete", "delete", false],
+  ]) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = quiet ? "btn btn-quiet" : "btn";
+    button.textContent = label;
+    button.addEventListener("click", () => dialog.close(value));
+    if (quiet) button.autofocus = true;
+    actions.appendChild(button);
+  }
+  dialog.append(heading, message, actions);
+  dialog.addEventListener("keydown", (event) => event.stopPropagation());
+  document.body.appendChild(dialog);
+  dialog.returnValue = "cancel";
+  try {
+    return await new Promise((resolve) => {
+      dialog.addEventListener(
+        "close",
+        () => resolve(dialog.returnValue === "delete"),
+        { once: true },
+      );
+      dialog.showModal();
+    });
+  } finally {
+    confirmationOpen = false;
+    dialog.remove();
+  }
+}
+async function requestNoteDeletion(note) {
+  if (!linuxConfirmations) return window.manager.delete(note.id);
+  if (
+    await confirmInManager(
+      "Delete note?",
+      "This note will be permanently deleted. This cannot be undone.",
+    )
+  )
+    window.manager.confirmDelete(note.id);
+}
+async function requestWorkspaceDeletion(id) {
+  if (!linuxConfirmations) return window.manager.deleteWorkspace(id);
+  const preview = await window.manager.workspaceDeletion(id);
+  if (!preview) return;
+  if (
+    await confirmInManager(
+      `Delete “${preview.name}”?`,
+      `Notes in this workspace will move to “${preview.destination}”. Your notes will be kept.`,
+    )
+  )
+    window.manager.confirmDeleteWorkspace(id);
+}

@@ -229,7 +229,24 @@ function createManagerModule({ store, actions, theme }) {
     };
   });
 
-  ipcMain.on("manager:deleteWorkspace", (event, payload) => {
+  ipcMain.on("manager:deleteWorkspace", async (event, payload) => {
+    if (typeof payload === "string") {
+      if (!trustedManager(event)) return;
+      const workspace = store.getWorkspace(payload);
+      const fallback = store.fallbackWorkspaceFor(payload);
+      if (!workspace || !fallback || store.workspaces().length <= 1) return;
+      const { response } = await dialog.showMessageBox(win, {
+        type: "warning",
+        title: "Delete workspace",
+        message: `Delete “${workspace.name}”?`,
+        detail: `Notes in this workspace will move to “${fallback.name}”.`,
+        buttons: ["Cancel", "Delete"],
+        defaultId: 0,
+        cancelId: 0,
+        noLink: true,
+      });
+      payload = { id: payload, confirmed: response === 1 };
+    }
     if (
       !trustedManager(event) ||
       !payload ||
@@ -259,7 +276,21 @@ function createManagerModule({ store, actions, theme }) {
     actions.renameNote(payload.id, sanitizeTitle(payload.title));
   });
 
-  ipcMain.on("manager:delete", (e, payload) => {
+  ipcMain.on("manager:delete", async (e, payload) => {
+    if (typeof payload === "string") {
+      if (!trustedManager(e) || !store.get(payload)) return;
+      const { response } = await dialog.showMessageBox(win, {
+        type: "warning",
+        title: "Delete note",
+        message: "Delete this note permanently?",
+        detail: "This cannot be undone.",
+        buttons: ["Cancel", "Delete"],
+        defaultId: 0,
+        cancelId: 0,
+        noLink: true,
+      });
+      payload = { id: payload, confirmed: response === 1 };
+    }
     if (
       !win ||
       win.isDestroyed() ||
