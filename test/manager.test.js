@@ -18,6 +18,8 @@ function setup(t) {
   const handlers = new Map();
   let window;
   let removed = [];
+  let confirmationResponse = 0;
+  const confirmations = [];
   class Window extends EventEmitter {
     constructor() {
       super();
@@ -39,6 +41,12 @@ function setup(t) {
       if (name === "electron")
         return {
           app: {},
+          dialog: {
+            showMessageBox: async (parent, options) => {
+              confirmations.push(options);
+              return { response: confirmationResponse };
+            },
+          },
           BrowserWindow: Window,
           ipcMain: {
             on: (k, v) => listeners.set(k, v),
@@ -57,6 +65,7 @@ function setup(t) {
   const manager = context.module.exports.createManagerModule({
     store,
     actions: {
+      deleteNoteRecord: (id) => store.remove(id),
       removeWorkspace: (id) => {
         removed.push(id);
         store.removeWorkspace(id);
@@ -72,6 +81,11 @@ function setup(t) {
     removed,
     setShortcut: handlers.get("manager:setShortcut"),
     recordShortcut: handlers.get("manager:recordShortcut"),
+    removeNote: listeners.get("manager:delete"),
+    confirmations,
+    confirm: () => {
+      confirmationResponse = 1;
+    },
   };
 }
 
@@ -140,4 +154,32 @@ test("shortcut IPC validates combinations and rejects duplicates without changin
   assert.equal(h.recordShortcut({ sender: {} }, true), false);
   assert.equal(h.recordShortcut(h.event, true), true);
   assert.equal(h.recordShortcut(h.event, false), true);
+});
+
+test("upstream UI note deletion requires an accepted native confirmation", async (t) => {
+  const h = setup(t);
+  const note = h.store.create({ text: "Disposable confirmation test" });
+  await h.removeNote(h.event, note.id);
+  assert.ok(h.store.get(note.id));
+  assert.equal(h.confirmations.length, 1);
+  h.confirm();
+  await h.removeNote({ sender: {} }, note.id);
+  assert.ok(h.store.get(note.id));
+  await h.removeNote(h.event, note.id);
+  assert.equal(h.store.get(note.id), null);
+});
+
+test("upstream workspace confirmation preserves notes in the fallback workspace", async (t) => {
+  const h = setup(t);
+  const home = h.store.activeWorkspaceId();
+  const workspace = h.store.createWorkspace("Disposable workspace");
+  const note = h.store.create({
+    workspaceId: workspace.id,
+    text: "Keep this note",
+  });
+  await h.remove(h.event, workspace.id);
+  assert.ok(h.store.getWorkspace(workspace.id));
+  h.confirm();
+  await h.remove(h.event, workspace.id);
+  assert.equal(h.store.get(note.id).workspaceId, home);
 });

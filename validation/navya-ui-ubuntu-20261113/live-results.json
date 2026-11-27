@@ -1,0 +1,19 @@
+{
+  "runtime": {
+    "platform": "linux",
+    "backend": "x11",
+    "capture": {
+      "mode": "compositor-omit",
+      "message": "Experimental GNOME/Mutter capture exclusion is active for Mutter/PipeWire screen sharing. Direct X11/KMS capture and screenshots are outside its scope.",
+      "provider": "gnome-mutter"
+    },
+    "storage": {
+      "encrypted": false,
+      "backend": "unavailable"
+    },
+    "globalShortcut": "registered"
+  },
+  "navyaInlineNoteUI": true,
+  "nativeMouseDisablesGhost": true,
+  "pinToggle": true
+}

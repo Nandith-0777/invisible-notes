@@ -4,7 +4,11 @@ contextBridge.exposeInMainWorld("manager", {
   list: () => ipcRenderer.invoke("manager:list"),
   open: (id) => ipcRenderer.send("manager:open", id),
   hide: (id) => ipcRenderer.send("manager:hide", id),
-  delete: (id) => ipcRenderer.send("manager:delete", { id, confirmed: true }),
+  delete: (id) => ipcRenderer.send("manager:delete", id),
+  confirmDelete: (id) =>
+    ipcRenderer.send("manager:delete", { id, confirmed: true }),
+  confirmDeleteWorkspace: (id) =>
+    ipcRenderer.send("manager:deleteWorkspace", { id, confirmed: true }),
   rename: (id, title) => ipcRenderer.send("manager:rename", { id, title }),
   newNote: () => ipcRenderer.send("manager:new"),
   onChanged: (cb) =>
@@ -26,8 +30,7 @@ contextBridge.exposeInMainWorld("manager", {
     ipcRenderer.send("manager:renameWorkspace", { id, name }),
   workspaceDeletion: (id) =>
     ipcRenderer.invoke("manager:workspaceDeletion", id),
-  deleteWorkspace: (id) =>
-    ipcRenderer.send("manager:deleteWorkspace", { id, confirmed: true }),
+  deleteWorkspace: (id) => ipcRenderer.send("manager:deleteWorkspace", id),
   moveNote: (id, workspaceId) =>
     ipcRenderer.send("manager:moveNote", { id, workspaceId }),
   exportAll: () => ipcRenderer.invoke("manager:export"),

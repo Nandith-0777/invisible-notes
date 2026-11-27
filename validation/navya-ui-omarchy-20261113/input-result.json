@@ -1,0 +1,8 @@
+{
+  "bodyClickThrough": true,
+  "ghostToolbarRecovery": true,
+  "drag": true,
+  "smoothResizeSettles": true,
+  "ghostPopover": true,
+  "collapseExpand": true
+}
